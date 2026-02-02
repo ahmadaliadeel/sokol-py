@@ -23,6 +23,8 @@ jobs:
   build-sokol-libs:
     name: Build Sokol Libraries
     uses: ./.github/workflows/build-sokol.yml
+    permissions:
+      contents: write
 
   build:
     name: Build Distribution
