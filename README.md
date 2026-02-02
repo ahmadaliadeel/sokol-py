@@ -1,6 +1,23 @@
-# Sokol Python Bindings Generator
+# Sokol Python Bindings
 
-Automatically generate Python ctypes bindings for the [Sokol](https://github.com/floooh/sokol) cross-platform graphics library using libclang.
+[![PyPI version](https://badge.fury.io/py/sokol-ahmedaliadeel.svg)](https://badge.fury.io/py/sokol-ahmedaliadeel)
+[![CI](https://github.com/ahmedaliadeel/sokol-py/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmedaliadeel/sokol-py/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Automatically generated Python ctypes bindings for the [Sokol](https://github.com/floooh/sokol) cross-platform graphics library using libclang.
+
+## Installation
+
+```bash
+pip install sokol-ahmedaliadeel
+```
+
+Or with uv:
+
+```bash
+uv add sokol-ahmedaliadeel
+```
 
 ## Features
 
