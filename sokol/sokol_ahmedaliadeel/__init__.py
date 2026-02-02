@@ -3427,34 +3427,130 @@ DPI_AWARENESS_CONTEXT_T__._fields_ = [
 
 _sokol_lib = None
 
-def load_sokol_dll(dll_path: str = 'sokol-dll.dll') -> Any:
+
+def _get_lib_path() -> Path:
     """
-    Load the Sokol DLL and set up function prototypes.
+    Get the path to the Sokol shared library for the current platform.
+    
+    Returns:
+        Path to the platform-specific shared library
+    
+    Raises:
+        RuntimeError: If the platform is not supported or library not found
+    """
+    import platform
+    
+    lib_dir = Path(__file__).parent / "lib"
+    
+    if sys.platform == "win32":
+        lib_name = "sokol-windows-x64.dll"
+    elif sys.platform == "darwin":
+        # Check for Apple Silicon vs Intel
+        machine = platform.machine().lower()
+        if machine == "arm64":
+            lib_name = "libsokol-macos-arm64.dylib"
+        else:
+            lib_name = "libsokol-macos-x64.dylib"
+    elif sys.platform.startswith("linux"):
+        lib_name = "libsokol-linux-x64.so"
+    else:
+        raise RuntimeError(f"Unsupported platform: {sys.platform}")
+    
+    lib_path = lib_dir / lib_name
+    
+    # Check if bundled library exists
+    if lib_path.exists():
+        return lib_path
+    
+    # Fallback: try current directory with platform-specific name
+    local_path = Path(".") / lib_name
+    if local_path.exists():
+        return local_path
+    
+    # Fallback: try legacy names
+    legacy_names = {
+        "win32": ["sokol.dll", "sokol-dll.dll"],
+        "darwin": ["libsokol.dylib", "sokol.dylib"],
+        "linux": ["libsokol.so", "sokol.so"],
+    }
+    
+    platform_key = "linux" if sys.platform.startswith("linux") else sys.platform
+    for legacy_name in legacy_names.get(platform_key, []):
+        for try_dir in [Path("."), Path(__file__).parent, lib_dir]:
+            legacy_path = try_dir / legacy_name
+            if legacy_path.exists():
+                return legacy_path
+    
+    raise RuntimeError(
+        f"Sokol library not found for {sys.platform}. "
+        f"Expected: {lib_path}\n"
+        f"You can download pre-built libraries from the GitHub releases page, "
+        f"or build from source using the build-sokol workflow."
+    )
+
+
+def load_sokol(lib_path: Optional[str] = None) -> Any:
+    """
+    Load the Sokol shared library and set up function prototypes.
+    
+    This function automatically detects the current platform and loads
+    the appropriate shared library (DLL on Windows, .so on Linux, 
+    .dylib on macOS).
     
     Args:
-        dll_path: Path to the Sokol DLL file
+        lib_path: Optional explicit path to the Sokol library.
+                  If not provided, auto-detection is used.
     
     Returns:
         The loaded library object with all functions bound
+    
+    Raises:
+        RuntimeError: If the library cannot be found or loaded
+    
+    Example:
+        >>> from sokol.sokol_ahmedaliadeel import load_sokol
+        >>> lib = load_sokol()  # Auto-detect
+        >>> # or with explicit path:
+        >>> lib = load_sokol('/path/to/libsokol.so')
     """
     global _sokol_lib
     
-    path = Path(dll_path)
-    if not path.exists():
-        # Try common locations
-        for try_path in [Path('.') / dll_path, Path(__file__).parent / dll_path]:
-            if try_path.exists():
-                path = try_path
-                break
+    if lib_path is not None:
+        path = Path(lib_path)
+        if not path.exists():
+            raise RuntimeError(f"Sokol library not found at: {lib_path}")
+    else:
+        path = _get_lib_path()
     
     if sys.platform == 'win32':
         lib = ctypes.CDLL(str(path))
-    else:
+    elif sys.platform == 'darwin':
         lib = ctypes.CDLL(str(path))
+    else:
+        # Linux - use RTLD_GLOBAL for proper symbol resolution
+        lib = ctypes.CDLL(str(path), mode=ctypes.RTLD_GLOBAL)
     
     _setup_function_prototypes(lib)
     _sokol_lib = lib
     return lib
+
+
+def load_sokol_dll(dll_path: str = None) -> Any:
+    """
+    Load the Sokol DLL and set up function prototypes.
+    
+    .. deprecated::
+        Use :func:`load_sokol` instead, which provides cross-platform support.
+    
+    Args:
+        dll_path: Path to the Sokol DLL file. If None, auto-detection is used.
+    
+    Returns:
+        The loaded library object with all functions bound
+    """
+    if dll_path is None:
+        return load_sokol()
+    return load_sokol(dll_path)
 
 def _setup_function_prototypes(lib):
     """Set up ctypes function prototypes."""
@@ -5926,6 +6022,8 @@ __all__ = [
     'SETPROCESSDPIAWARENESSCONTEXT_T',
     'SETPROCESSDPIAWARENESS_T',
     'GETDPIFORMONITOR_T',
+    '_get_lib_path',
+    'load_sokol',
     'load_sokol_dll',
     'get_lib',
     'make_range',

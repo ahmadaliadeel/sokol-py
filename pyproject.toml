@@ -57,6 +57,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["sokol"]
+include = [
+    "sokol/sokol_ahmedaliadeel/lib/*.dll",
+    "sokol/sokol_ahmedaliadeel/lib/*.so",
+    "sokol/sokol_ahmedaliadeel/lib/*.dylib",
+]
 
 [tool.hatch.build.targets.sdist]
 include = [

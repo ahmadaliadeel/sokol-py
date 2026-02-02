@@ -14,12 +14,29 @@ on:
           - testpypi
           - pypi
 
+env:
+  SOKOL_VERSION: "master"
+
 jobs:
+  build-sokol-libs:
+    name: Build Sokol Libraries
+    uses: ./.github/workflows/build-sokol.yml
+
   build:
     name: Build Distribution
+    needs: build-sokol-libs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download Sokol libraries
+        uses: actions/download-artifact@v4
+        with:
+          name: sokol-all-platforms
+          path: sokol/sokol_ahmedaliadeel/lib/
+
+      - name: List libraries
+        run: ls -la sokol/sokol_ahmedaliadeel/lib/
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -47,7 +64,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish_target == 'testpypi'
     environment:
       name: testpypi
-      url: https://test.pypi.org/project/sokol-ahmedaliadeel/
+      url: https://test.pypi.org/project/sokol/
     permissions:
       id-token: write
     steps:
@@ -69,7 +86,7 @@ jobs:
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_target == 'pypi')
     environment:
       name: pypi
-      url: https://pypi.org/project/sokol-ahmedaliadeel/
+      url: https://pypi.org/project/sokol/
     permissions:
       id-token: write
     steps:

@@ -1,0 +1,248 @@
+name: Build Sokol Shared Libraries
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  SOKOL_VERSION: "master"
+
+jobs:
+  build-windows:
+    name: Build Windows (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Download Sokol headers
+        run: |
+          mkdir -p sokol_src
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_log.h" -OutFile "sokol_src/sokol_log.h"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_gfx.h" -OutFile "sokol_src/sokol_gfx.h"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_app.h" -OutFile "sokol_src/sokol_app.h"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_glue.h" -OutFile "sokol_src/sokol_glue.h"
+        shell: pwsh
+
+      - name: Create sokol_dll.c
+        run: |
+          @"
+          // Sokol DLL implementation for Windows D3D11
+          #define SOKOL_DLL
+          #define SOKOL_D3D11
+          #define SOKOL_NO_ENTRY
+          #define SOKOL_IMPL
+          #include "sokol_log.h"
+          #include "sokol_gfx.h"
+          #include "sokol_app.h"
+          #include "sokol_glue.h"
+          "@ | Out-File -FilePath "sokol_src/sokol_dll.c" -Encoding ASCII
+        shell: pwsh
+
+      - name: Build DLL
+        run: |
+          cd sokol_src
+          cl /LD /O2 /DSOKOL_DLL /I. sokol_dll.c /Fe:sokol.dll user32.lib gdi32.lib shell32.lib d3d11.lib dxgi.lib d3dcompiler.lib ole32.lib
+        shell: cmd
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sokol-windows-x64
+          path: sokol_src/sokol.dll
+          retention-days: 30
+
+  build-linux:
+    name: Build Linux (x64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libx11-dev libxi-dev libxcursor-dev libasound2-dev
+
+      - name: Download Sokol headers
+        run: |
+          mkdir -p sokol_src
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_log.h" -o sokol_src/sokol_log.h
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_gfx.h" -o sokol_src/sokol_gfx.h
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_app.h" -o sokol_src/sokol_app.h
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_glue.h" -o sokol_src/sokol_glue.h
+
+      - name: Create sokol_dll.c
+        run: |
+          cat > sokol_src/sokol_dll.c << 'EOF'
+          // Sokol shared library implementation for Linux OpenGL
+          #define SOKOL_GLCORE
+          #define SOKOL_NO_ENTRY
+          #define SOKOL_IMPL
+          #include "sokol_log.h"
+          #include "sokol_gfx.h"
+          #include "sokol_app.h"
+          #include "sokol_glue.h"
+          EOF
+
+      - name: Build shared library
+        run: |
+          cd sokol_src
+          gcc -shared -fPIC -O2 -o libsokol.so sokol_dll.c -lGL -lX11 -lXi -lXcursor -lpthread -lm -ldl -lasound
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sokol-linux-x64
+          path: sokol_src/libsokol.so
+          retention-days: 30
+
+  build-macos-x64:
+    name: Build macOS (x64)
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Sokol headers
+        run: |
+          mkdir -p sokol_src
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_log.h" -o sokol_src/sokol_log.h
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_gfx.h" -o sokol_src/sokol_gfx.h
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_app.h" -o sokol_src/sokol_app.h
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_glue.h" -o sokol_src/sokol_glue.h
+
+      - name: Create sokol_dll.m
+        run: |
+          cat > sokol_src/sokol_dll.m << 'EOF'
+          // Sokol shared library implementation for macOS Metal
+          #define SOKOL_METAL
+          #define SOKOL_NO_ENTRY
+          #define SOKOL_IMPL
+          #include "sokol_log.h"
+          #include "sokol_gfx.h"
+          #include "sokol_app.h"
+          #include "sokol_glue.h"
+          EOF
+
+      - name: Build shared library
+        run: |
+          cd sokol_src
+          clang -shared -fPIC -O2 -arch x86_64 -o libsokol.dylib sokol_dll.m \
+            -framework Metal -framework MetalKit -framework Cocoa -framework QuartzCore -framework AudioToolbox
+
+      - name: Upload macOS x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sokol-macos-x64
+          path: sokol_src/libsokol.dylib
+          retention-days: 30
+
+  build-macos-arm64:
+    name: Build macOS (ARM64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Sokol headers
+        run: |
+          mkdir -p sokol_src
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_log.h" -o sokol_src/sokol_log.h
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_gfx.h" -o sokol_src/sokol_gfx.h
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_app.h" -o sokol_src/sokol_app.h
+          curl -L "https://raw.githubusercontent.com/floooh/sokol/${{ env.SOKOL_VERSION }}/sokol_glue.h" -o sokol_src/sokol_glue.h
+
+      - name: Create sokol_dll.m
+        run: |
+          cat > sokol_src/sokol_dll.m << 'EOF'
+          // Sokol shared library implementation for macOS Metal
+          #define SOKOL_METAL
+          #define SOKOL_NO_ENTRY
+          #define SOKOL_IMPL
+          #include "sokol_log.h"
+          #include "sokol_gfx.h"
+          #include "sokol_app.h"
+          #include "sokol_glue.h"
+          EOF
+
+      - name: Build shared library
+        run: |
+          cd sokol_src
+          clang -shared -fPIC -O2 -arch arm64 -o libsokol.dylib sokol_dll.m \
+            -framework Metal -framework MetalKit -framework Cocoa -framework QuartzCore -framework AudioToolbox
+
+      - name: Upload macOS ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sokol-macos-arm64
+          path: sokol_src/libsokol.dylib
+          retention-days: 30
+
+  package-libs:
+    name: Package All Libraries
+    needs: [build-windows, build-linux, build-macos-x64, build-macos-arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Organize libraries
+        run: |
+          mkdir -p sokol/sokol_ahmedaliadeel/lib
+          cp artifacts/sokol-windows-x64/sokol.dll sokol/sokol_ahmedaliadeel/lib/sokol-windows-x64.dll
+          cp artifacts/sokol-linux-x64/libsokol.so sokol/sokol_ahmedaliadeel/lib/libsokol-linux-x64.so
+          cp artifacts/sokol-macos-x64/libsokol.dylib sokol/sokol_ahmedaliadeel/lib/libsokol-macos-x64.dylib
+          cp artifacts/sokol-macos-arm64/libsokol.dylib sokol/sokol_ahmedaliadeel/lib/libsokol-macos-arm64.dylib
+          ls -la sokol/sokol_ahmedaliadeel/lib/
+
+      - name: Upload combined artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sokol-all-platforms
+          path: sokol/sokol_ahmedaliadeel/lib/
+          retention-days: 30
+
+  release:
+    name: Attach to Release
+    needs: package-libs
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Download combined artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sokol-all-platforms
+          path: libs
+
+      - name: Create release archives
+        run: |
+          cd libs
+          zip -j sokol-windows-x64.zip sokol-windows-x64.dll
+          tar -czvf sokol-linux-x64.tar.gz libsokol-linux-x64.so
+          zip -j sokol-macos-x64.zip libsokol-macos-x64.dylib
+          zip -j sokol-macos-arm64.zip libsokol-macos-arm64.dylib
+          zip -j sokol-all-platforms.zip *.dll *.so *.dylib
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            libs/sokol-windows-x64.zip
+            libs/sokol-linux-x64.tar.gz
+            libs/sokol-macos-x64.zip
+            libs/sokol-macos-arm64.zip
+            libs/sokol-all-platforms.zip

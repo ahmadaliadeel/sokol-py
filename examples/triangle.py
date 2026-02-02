@@ -5,25 +5,17 @@ This example demonstrates drawing a triangle using the Sokol library via
 automatically generated Python ctypes bindings.
 
 Requirements:
-1. Have sokol-dll.dll in the current directory
-2. Run setup_and_generate.py first to generate sokol_bindings.py
-3. Install libclang: pip install libclang
+1. Install the sokol package: pip install sokol
+2. The package includes pre-built shared libraries for all platforms
 
 Usage:
-    python setup_and_generate.py   # Generate bindings first
-    python main.py                 # Run the triangle demo
+    python triangle.py
 """
 
 import os
 import sys
 import ctypes
 from pathlib import Path
-
-# Check if bindings exist
-# if not Path("sokol.py").exists():
-#     print("ERROR: sokol.py not found!")
-#     print("Run 'python setup_and_generate.py' first to generate bindings.")
-#     sys.exit(1)
 
 # Import generated bindings
 from sokol import *
@@ -204,17 +196,12 @@ class TriangleApp:
         
     def run(self):
         """Run the application."""
-        # Load the DLL
-        dll_name = os.path.abspath("sokol-dll.dll")
-        if not Path(dll_name).exists():
-            print(f"ERROR: {dll_name} not found!")
-            return 1
-        
+        # Load the Sokol library (auto-detects platform)
         try:
-            self.lib = load_sokol_dll(dll_name)
-            print(f"Loaded {dll_name}")
+            self.lib = load_sokol()
+            print(f"Loaded Sokol library for {sys.platform}")
         except Exception as e:
-            print(f"Failed to load DLL: {e}")
+            print(f"Failed to load Sokol library: {e}")
             return 1
         
         # Create callback wrappers
@@ -240,10 +227,6 @@ class TriangleApp:
         
         # High DPI
         desc.high_dpi = True
-        
-        # Set up logger - slog_func is exported from DLL, we need to cast its address
-        # For now, skip the logger setup as it requires special handling
-        # The DLL will use default logging
         
         print("Starting Sokol application...")
         print("=" * 50)
@@ -306,23 +289,6 @@ def main():
     print("Sokol Triangle Example - Python Ctypes")
     print("=" * 60)
     print()
-    
-    # Check for DLL
-    dll_path = Path("sokol-dll.dll")
-    if not dll_path.exists():
-        print(f"ERROR: {dll_path} not found!")
-        print()
-        print("Please ensure sokol-dll.dll is in the current directory.")
-        return 1
-    
-    # Check for bindings
-    bindings_path = Path("sokol_bindings.py")
-    if not bindings_path.exists():
-        print(f"ERROR: {bindings_path} not found!")
-        print()
-        print("Run the binding generator first:")
-        print("  python setup_and_generate.py")
-        return 1
     
     # Run the application
     app = TriangleApp()

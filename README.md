@@ -1,7 +1,8 @@
 # Sokol Python Bindings
 
-[![PyPI version](https://badge.fury.io/py/sokol-ahmedaliadeel.svg)](https://badge.fury.io/py/sokol-ahmedaliadeel)
-[![CI](https://github.com/ahmedaliadeel/sokol-py/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmedaliadeel/sokol-py/actions/workflows/ci.yml)
+[![PyPI version](https://badge.fury.io/py/sokol.svg)](https://badge.fury.io/py/sokol)
+[![CI](https://github.com/ahmadaliadeel/sokol-py/actions/workflows/ci.yml/badge.svg)](https://github.com/ahmadaliadeel/sokol-py/actions/workflows/ci.yml)
+[![Build Sokol](https://github.com/ahmadaliadeel/sokol-py/actions/workflows/build-sokol.yml/badge.svg)](https://github.com/ahmadaliadeel/sokol-py/actions/workflows/build-sokol.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -10,21 +11,32 @@ Automatically generated Python ctypes bindings for the [Sokol](https://github.co
 ## Installation
 
 ```bash
-pip install sokol-ahmedaliadeel
+pip install sokol
 ```
 
 Or with uv:
 
 ```bash
-uv add sokol-ahmedaliadeel
+uv add sokol
 ```
 
 ## Features
 
+- **Cross-platform support**: Windows (D3D11), macOS (Metal), Linux (OpenGL)
+- **Automatic platform detection**: Just call `load_sokol()` and it works
+- **Pre-built shared libraries**: Included for all supported platforms
 - **Automatic binding generation** from Sokol C headers using libclang
 - **Complete type coverage**: enums, structs, function pointers, and API functions
 - **Zero manual binding code** - everything is parsed from headers
-- **Works with sokol-dll.dll** for Windows D3D11 backend
+
+## Supported Platforms
+
+| Platform | Architecture | Backend | Library |
+|----------|-------------|---------|----------|
+| Windows | x64 | D3D11 | `sokol-windows-x64.dll` |
+| macOS | x64 | Metal | `libsokol-macos-x64.dylib` |
+| macOS | ARM64 | Metal | `libsokol-macos-arm64.dylib` |
+| Linux | x64 | OpenGL | `libsokol-linux-x64.so` |
 
 ## Generated Statistics
 
@@ -38,8 +50,11 @@ uv add sokol-ahmedaliadeel
 ## Requirements
 
 - Python 3.10+
-- libclang (`pip install libclang` or `uv pip install libclang`)
-- Pre-built `sokol-dll.dll` (D3D11 backend)
+- Pre-built shared libraries are included in the package
+
+### For Development/Binding Generation
+
+- libclang (`pip install libclang`)
 
 ## Quick Start
 
@@ -87,13 +102,22 @@ python main.py
 ### Basic Usage
 
 ```python
-from sokol_bindings import *
+from sokol.sokol_ahmedaliadeel import *
 
-# Load the DLL
-lib = load_sokol_dll('sokol-dll.dll')
+# Auto-detect platform and load the appropriate library
+lib = load_sokol()
 
 # Now use Sokol API
 # lib.sg_setup(), lib.sapp_run(), etc.
+```
+
+### Explicit Library Path
+
+```python
+from sokol.sokol_ahmedaliadeel import load_sokol
+
+# Load a specific library file
+lib = load_sokol('/path/to/libsokol.so')
 ```
 
 ### Creating Structs
